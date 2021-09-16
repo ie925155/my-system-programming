@@ -64,7 +64,7 @@ $(EXE)-debug: $(OBJS_CAMELCASER:%.o=$(OBJS_DIR)/%-debug.o)
 	$(LD) $^ $(LDFLAGS) -o $@
 
 $(EXE): $(OBJS_CAMELCASER:%.o=$(OBJS_DIR)/%-release.o)
-	$(LD) $^ $(LDFLAGS) -o $@
+	$(LD) $^ $(OBJS_REF) $(LDFLAGS) -o $@
 
 $(EXE_REF): $(OBJS_EXE_REF)
 	$(LD) $^ $(OBJS_REF) $(LDFLAGS) -o $@
