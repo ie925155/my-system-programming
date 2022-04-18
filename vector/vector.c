@@ -130,22 +130,27 @@ size_t vector_size(vector *this) {
 
 void vector_resize(vector *this, size_t n) {
     assert(this);
-    if (this->capacity == n) {
+    if (this->size == n) {
         return;
     }
-    if (this->capacity < n) {
-        size_t new_capacity = get_new_capacity(n);
-        //void **new_array = calloc(new_capacity, sizeof(void *));
-        //memcpy(new_array, this->array, this->size * sizeof(void *));
-        //free(this->array);
-        //this->array = new_array;
-        this->array = realloc(this->array, new_capacity * sizeof(void *));
-        if (this->array == NULL) {
-            printf("realloc memory to new size(%zu) failed", new_capacity);
-            return;
+    if (this->size < n) {
+        if (this->capacity < n) {
+            size_t new_capacity = get_new_capacity(n);
+            //void **new_array = calloc(new_capacity, sizeof(void *));
+            //memcpy(new_array, this->array, this->size * sizeof(void *));
+            //free(this->array);
+            //this->array = new_array;
+            this->array = realloc(this->array, new_capacity * sizeof(void *));
+            if (this->array == NULL) {
+                printf("realloc memory to new size(%zu) failed", new_capacity);
+                return;
+            }
+            this->capacity = new_capacity;
         }
-        this->capacity = new_capacity;
-    } else { // case of capacity > n
+        for (size_t i = this->size; i < n; i++) {
+            this->array[i] = this->default_constructor();
+        }
+    } else { // case of size > n
         for (size_t i = vector_size(this)-1; i >= n; i--) {
             this->destructor(this->array[i]);
         }
