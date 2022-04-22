@@ -83,6 +83,7 @@ static size_t get_new_capacity(size_t target) {
     size_t new_capacity = 1;
     while (new_capacity < target) {
         new_capacity *= GROWTH_FACTOR;
+        //printf("value=%zu, target=%zu\n", new_capacity, target);
     }
     return new_capacity;
 }
@@ -106,7 +107,7 @@ vector *vector_create(copy_constructor_type copy_constructor,
 
 void vector_destroy(vector *this) {
     assert(this);
-    for (int i = 0; i < (int)this->size; i++) {
+    for (size_t i = 0; i < vector_size(this); i++) {
         this->destructor(this->array[i]);
     }
     free(this->array);
@@ -154,8 +155,8 @@ void vector_resize(vector *this, size_t n) {
         for (size_t i = vector_size(this)-1; i >= n; i--) {
             this->destructor(this->array[i]);
         }
-        this->size = n;
     }
+    this->size = n;
 }
 
 size_t vector_capacity(vector *this) {
@@ -171,7 +172,15 @@ bool vector_empty(vector *this) {
 void vector_reserve(vector *this, size_t n) {
     assert(this);
     if (this->capacity < n) {
-        vector_resize(this, n);
+        //vector_resize(this, n);
+        size_t new_capacity = get_new_capacity(n);
+        assert(new_capacity > this->capacity);
+        this->capacity = new_capacity;
+        this->array = realloc(this->array, this->capacity * sizeof(void *));
+        if (this->array == NULL) {
+            printf("realloc memory to new size(%zu) failed", new_capacity);
+            return;
+        }
     }
 }
 
@@ -205,11 +214,11 @@ void **vector_back(vector *this) {
 
 void vector_push_back(vector *this, void *element) {
     assert(this);
+    this->array[this->size++] = this->copy_constructor(element);
     if (vector_size(this) == this->capacity) { // do reallocation vector capacity
-        vector_resize(this, this->size+1);
+        vector_reserve(this, this->capacity+1);
         assert(this->capacity > this->size);
     }
-    this->array[this->size++] = this->copy_constructor(element);
 }
 
 void vector_pop_back(vector *this) {
@@ -225,11 +234,11 @@ void vector_insert(vector *this, size_t position, void *element) {
     assert(this);
     assert(position <= vector_size(this));
     if (vector_size(this) + 1 > this->capacity) {
-        vector_resize(this, this->capacity + 1);
+        vector_reserve(this, this->capacity + 1);
     }
     if (position < vector_size(this)) {
         memmove(this->array + position + 1, this->array + position,
-            vector_size(this) - position);
+            (vector_size(this) - position) * sizeof(void *));
     }
     this->array[position] = this->copy_constructor(element);
     this->size++;
@@ -239,11 +248,18 @@ void vector_erase(vector *this, size_t position) {
     assert(this);
     assert(position < vector_size(this));
     this->destructor(this->array[position]);
+    this->size--;
+    if (position == vector_size(this) - 1) {
+        return;
+    }
+    memmove(this->array + position, this->array + position + 1,
+        (vector_size(this) - position) * sizeof(void *));
 }
 
 void vector_clear(vector *this) {
     assert(this);
-    for (size_t i = 0; i < vector_size(this); i++) {
+    size_t size = vector_size(this) - 1;
+    for (int i = (int)size; i >= 0; i--) {
         vector_erase(this, i);
     }
 }
