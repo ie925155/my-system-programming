@@ -232,6 +232,80 @@ static void Test_float_vector(void) {
     printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
 }
 
+static void Test_int_vector(void) {
+    printf("%s -> ", __FUNCTION__);
+
+    vector *v = int_vector_create();
+
+    int t[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    for (size_t i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
+       vector_push_back(v, &t[i]);
+    }
+    assert(vector_size(v) == 10);
+
+    vector_pop_back(v);
+    assert(vector_size(v) == 9);
+
+    int i = 0;
+    for (void **it = vector_begin(v); it != vector_end(v); ++it) {
+        assert(t[i++] == (int)(*(int *)*it));
+        //printf("%p, %c\n", *it, (int)(*(int *)*it));
+    }
+
+    vector_resize(v, 20);
+    assert(vector_size(v) == 20);
+
+    vector_resize(v, 5);
+    assert(vector_size(v) == 5);
+
+    vector_reserve(v, 30);
+    assert(vector_capacity(v) >= 30);
+
+    assert(vector_empty(v) == false);
+
+    void **it;
+    it = vector_at(v, 0);
+    assert(t[0] == (int)(*(int *)*it));
+    it = vector_at(v, 1);
+    assert(t[1] == (int)(*(int *)*it));
+    it = vector_at(v, 2);
+    assert(t[2] == (int)(*(int *)*it));
+    it = vector_at(v, 3);
+    assert(t[3] == (int)(*(int *)*it));
+
+    int value = 9;
+    vector_set(v, 0, &value);
+    int *a = (int *)vector_get(v, 0);
+    assert(*a == value);
+
+    a = (int *)vector_get(v, 100);
+    assert(a == NULL);
+
+    it = vector_front(v);
+    assert(value == (int)(*(int *)*it));
+
+    it = vector_back(v);
+    assert(t[vector_size(v)-1] == (int)(*(int *)*it));
+
+    value = 8;
+    vector_insert(v, 1, &value);
+    assert(*(int *)vector_get(v, 1) == value);
+    assert(*(int *)vector_get(v, 0) == 9);
+    assert(*(int *)vector_get(v, 2) == 2);
+
+    vector_erase(v, 1);
+    assert(*(int *)vector_get(v, 0) == 9);
+    assert(*(int *)vector_get(v, 1) == 2);
+    assert(*(int *)vector_get(v, 2) == 3);
+
+    vector_clear(v);
+    assert(vector_size(v) == 0);
+
+    vector_destroy(v);
+
+    printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
+}
+
 int main(int argc, char *argv[]) {
 
     Test_char_vector();
@@ -239,6 +313,8 @@ int main(int argc, char *argv[]) {
     Test_double_vector();
 
     Test_float_vector();
+
+    Test_int_vector();
 
     return 0;
 }
