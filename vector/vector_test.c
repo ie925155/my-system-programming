@@ -306,6 +306,82 @@ static void Test_int_vector(void) {
     printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
 }
 
+static void Test_string_vector(void) {
+    printf("%s -> ", __FUNCTION__);
+
+    vector *v = string_vector_create();
+
+    char *t[] = {"test1", "test22", "test333", "test4444", "test55555",
+        "test666666", "test7777777", "test88888888", "test999999999",
+        "test10101010101010101010"};
+    for (size_t i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
+       vector_push_back(v, t[i]);
+    }
+    assert(vector_size(v) == 10);
+
+    vector_pop_back(v);
+    assert(vector_size(v) == 9);
+
+    int i = 0;
+    for (void **it = vector_begin(v); it != vector_end(v); ++it) {
+        assert(strcmp(t[i++], *it) == 0);
+        //printf("%p, %s\n", *it, (char *)*it);
+    }
+
+    vector_resize(v, 20);
+    assert(vector_size(v) == 20);
+
+    vector_resize(v, 5);
+    assert(vector_size(v) == 5);
+
+    vector_reserve(v, 30);
+    assert(vector_capacity(v) >= 30);
+
+    assert(vector_empty(v) == false);
+
+    void **it;
+    it = vector_at(v, 0);
+    assert(strcmp(t[0], *it) == 0);
+    it = vector_at(v, 1);
+    assert(strcmp(t[1], *it) == 0);
+    it = vector_at(v, 2);
+    assert(strcmp(t[2], *it) == 0);
+    it = vector_at(v, 3);
+    assert(strcmp(t[3], *it) == 0);
+
+    char *value = "sheldon test";
+    vector_set(v, 0, value);
+    char *a = (char *)vector_get(v, 0);
+    assert(strcmp(value, a) == 0);
+
+    a = (char *)vector_get(v, 100);
+    assert(a == NULL);
+
+    it = vector_front(v);
+    assert(strcmp(value ,*it) == 0);
+
+    it = vector_back(v);
+    assert(strcmp(t[vector_size(v)-1], *it) == 0);
+
+    value = "fish insert here";
+    vector_insert(v, 1, value);
+    assert(strcmp(value, vector_get(v, 1)) == 0);
+    assert(strcmp("sheldon test", vector_get(v, 0)) == 0);
+    assert(strcmp("test22", vector_get(v, 2)) == 0);
+
+    vector_erase(v, 1);
+    assert(strcmp("sheldon test", vector_get(v, 0)) == 0);
+    assert(strcmp("test22", vector_get(v, 1)) == 0);
+    assert(strcmp("test333", vector_get(v, 2)) == 0);
+
+    vector_clear(v);
+    assert(vector_size(v) == 0);
+
+    vector_destroy(v);
+
+    printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
+}
+
 int main(int argc, char *argv[]) {
 
     Test_char_vector();
@@ -315,6 +391,8 @@ int main(int argc, char *argv[]) {
     Test_float_vector();
 
     Test_int_vector();
+
+    Test_string_vector();
 
     return 0;
 }
