@@ -450,23 +450,52 @@ static void Test_shallow_vector(void) {
     assert(vector_size(v) == 0);
 
     vector_destroy(v);
-    
+
+    printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
+}
+
+static void Test_char_vector_erase(void) {
+    printf("%s -> ", __FUNCTION__);
+
+    vector *v = char_vector_create();
+    char *t =  "This is a {} day, {}!";
+
+    for (size_t i = 0; i < strlen(t); i++) {
+        vector_push_back(v, &t[i]);
+    }
+
+    assert(strlen(t) == vector_size(v));
+
+    vector_erase(v, 18);
+    assert(*(char *)vector_get(v, 16) == ',');
+    assert(*(char *)vector_get(v, 17) == ' ');
+    assert(*(char *)vector_get(v, 18) == '}');
+
+    vector_erase(v, 18);
+
+    assert(*(char *)vector_get(v, 16) == ',');
+    assert(*(char *)vector_get(v, 17) == ' ');
+    assert(*(char *)vector_get(v, 18) == '!');
+
     printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
 }
 
 int main(int argc, char *argv[]) {
 
-    Test_char_vector();
+    for (int i = 0; i < 1; i++) {
+        Test_char_vector();
 
-    Test_double_vector();
+        Test_double_vector();
 
-    Test_float_vector();
+        Test_float_vector();
 
-    Test_int_vector();
+        Test_int_vector();
 
-    Test_string_vector();
+        Test_string_vector();
 
-    Test_shallow_vector();
+        Test_shallow_vector();
 
+        Test_char_vector_erase();
+    }
     return 0;
 }

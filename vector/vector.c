@@ -249,7 +249,7 @@ void vector_erase(vector *this, size_t position) {
     assert(position < vector_size(this));
     this->destructor(this->array[position]);
     this->size--;
-    if (position == vector_size(this) - 1) {
+    if (vector_size(this) - position <= 0) {
         return;
     }
     memmove(this->array + position, this->array + position + 1,
