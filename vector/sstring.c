@@ -28,7 +28,7 @@ sstring *cstr_to_sstring(const char *input) {
 char *sstring_to_cstr(sstring *input) {
     assert(input != NULL);
     const size_t size = vector_size(input->v);
-    char *p = (char *)malloc(size * sizeof(char));
+    char *p = (char *)malloc(size * sizeof(char) + 1);
     int i = 0;
     for (void **it = vector_begin(input->v); it != vector_end(input->v); ++it) {
         p[i++] = (char)(*(char *)*it);
@@ -52,11 +52,12 @@ vector *sstring_split(sstring *this, char delimiter) {
     vector *v = string_vector_create();
     char *pch;
     char str_del[2];
+    char *ptr = cstr;
     sprintf(str_del, "%c", delimiter);
-    pch = strsep(&cstr, str_del);
+    pch = strsep(&ptr, str_del);
     while (pch) {
         vector_push_back(v, pch);
-        pch = strsep(&cstr, str_del);
+        pch = strsep(&ptr, str_del);
     }
     free(cstr);
     return v;

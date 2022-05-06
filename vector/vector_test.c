@@ -477,6 +477,8 @@ static void Test_char_vector_erase(void) {
     assert(*(char *)vector_get(v, 17) == ' ');
     assert(*(char *)vector_get(v, 18) == '!');
 
+    vector_destroy(v);
+
     printf(ANSI_COLOR_GREEN "passed" ANSI_COLOR_RESET "\n");
 }
 
