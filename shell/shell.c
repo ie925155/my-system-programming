@@ -8,6 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #include "format.h"
 #include "shell.h"
@@ -43,6 +44,17 @@ static vector *parse(const char *line)
 static void run_command(vector *v, char **next)
 {
     if (is_built_in(vector_get(v, 0))) {
+        int ret;
+        char *a = (char *)vector_get(v, 0);
+        if (strcmp(a, "cd") == 0) {
+            char cwd[PATH_MAX], str[PATH_MAX];
+            getcwd(cwd, sizeof(cwd));
+            char *path = (char *)vector_get(v, 1);
+            sprintf(str, "%s/%s", cwd, path);
+            ret = (path != NULL) ? chdir(str) : chdir(getenv("HOME"));
+            if (ret != 0)
+                fprintf(stderr, "%s: No such file or directory\n", str);
+        }
         return;
     }
     int pid = fork();
@@ -70,9 +82,10 @@ static void run_command(vector *v, char **next)
 
 int shell(int argc, char *argv[]) {
     char cwd[PATH_MAX];
-    char *line;
+    char *line = NULL;
     size_t line_len = 0;
-
+    (void)argc;
+    (void)argv;
     //process p;
     char *next = NULL;
     while (true) {
@@ -81,13 +94,16 @@ int shell(int argc, char *argv[]) {
 
         getline(&line, &line_len, stdin);
 
+        // remove newline character \n
+        line[strlen(line)-1] = '\0';
         //p.command = line;
         vector *v = parse(line);
         if (!vector_empty(v))
             run_command(v, &next);
         vector_destroy(v);
-        free(line);
     }
+    if (line)
+        free(line);
 
     return 0;
 }
