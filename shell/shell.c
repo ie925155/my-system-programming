@@ -33,9 +33,14 @@ static bool is_built_in(const char *cmd) {
     return false;
 }
 
+static bool is_need_record(const char *cmd) {
+    return (!is_built_in(cmd) || (is_built_in(cmd) && (strcmp(cmd, "cd") == 0)));
+}
+
 static vector *parse(const char *line)
 {
     sstring *s = cstr_to_sstring(line);
+    sstring_substitute(s, 0, "\n", "");
     vector *v = sstring_split(s, ' ');
     sstring_destroy(s);
     return v;
@@ -59,7 +64,7 @@ static void run_command(vector *v, char **next)
     }
     int pid = fork();
     if (pid == -1) {
-        fprintf(stderr, "%s\n", "fork failed");
+        print_fork_failed();
         exit(1);
     } else if (pid == 0) {
         //p.pid = getpid();
@@ -81,29 +86,68 @@ static void run_command(vector *v, char **next)
 }
 
 int shell(int argc, char *argv[]) {
+
+    int opt, has_history = 0, has_script = 0;
     char cwd[PATH_MAX];
     char *line = NULL;
     size_t line_len = 0;
-    (void)argc;
-    (void)argv;
     //process p;
     char *next = NULL;
+    FILE *output_file = NULL;
+    while ((opt = getopt(argc, argv, "fh")) != -1) {
+        switch (opt) {
+            case 'h':
+                has_history = 1;
+                break;
+            case 'f':
+                has_script = 1;
+                break;
+            default:
+                print_usage();
+                exit(EXIT_FAILURE);
+                break;
+        }
+    }
+    if (has_history == 1 || has_script == 1) {
+        output_file = fopen(argv[2], "a+");
+        if (!output_file) {
+            goto EXIT;
+        }
+    }
     while (true) {
         getcwd(cwd, sizeof(cwd));
         print_prompt(cwd, getpid());
 
         getline(&line, &line_len, stdin);
 
-        // remove newline character \n
-        line[strlen(line)-1] = '\0';
         //p.command = line;
         vector *v = parse(line);
+        const char *cmd = vector_get(v, 0);
+        if (strcmp(cmd, "exit") == 0) {
+            vector_destroy(v);
+            goto EXIT;
+        }
         if (!vector_empty(v))
             run_command(v, &next);
+        if (output_file && is_need_record(cmd)) {
+            if (fwrite(line, sizeof(char), line_len, output_file) != line_len) {
+                fprintf(stderr, "%s\n", "write command into history.txt failed");
+            }
+        }
         vector_destroy(v);
+        memset(line, 0, line_len);
     }
+
+EXIT:
     if (line)
         free(line);
-
+    if (output_file) {
+        fclose(output_file);
+    } else {
+        if (has_history)
+            print_history_file_error();
+        else if (has_script)
+            print_script_file_error();
+    }
     return 0;
 }
