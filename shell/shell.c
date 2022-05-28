@@ -15,6 +15,8 @@
 #include "vector.h"
 #include "sstring.h"
 
+static bool g_received_interrupt = 0;
+
 typedef struct process {
     char *command;
     pid_t pid;
@@ -85,6 +87,10 @@ static void run_command(vector *v, char **next)
     }
 }
 
+static void sig_handler(int signum) {
+    g_received_interrupt = 1;
+}
+
 int shell(int argc, char *argv[]) {
 
     int opt, has_history = 0, has_script = 0;
@@ -114,12 +120,25 @@ int shell(int argc, char *argv[]) {
             goto EXIT;
         }
     }
+
+    signal(SIGINT, sig_handler);
+
     while (true) {
         getcwd(cwd, sizeof(cwd));
         print_prompt(cwd, getpid());
 
-        getline(&line, &line_len, stdin);
+        getline(&line, &line_len, (has_script) ? output_file : stdin);
 
+        if (g_received_interrupt || feof(stdin)) {
+            break;
+        }
+        if (has_script) {
+            if (feof(output_file)) {
+                printf("\n");
+                break;
+            }
+            printf("%s", line);
+        }
         //p.command = line;
         vector *v = parse(line);
         const char *cmd = vector_get(v, 0);
@@ -129,8 +148,8 @@ int shell(int argc, char *argv[]) {
         }
         if (!vector_empty(v))
             run_command(v, &next);
-        if (output_file && is_need_record(cmd)) {
-            if (fwrite(line, sizeof(char), line_len, output_file) != line_len) {
+        if (has_history && is_need_record(cmd)) {
+            if (fwrite(line, sizeof(char), strlen(line), output_file) != strlen(line)) {
                 fprintf(stderr, "%s\n", "write command into history.txt failed");
             }
         }
