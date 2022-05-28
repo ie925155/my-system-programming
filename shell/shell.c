@@ -51,22 +51,28 @@ static vector *parse(const char *line)
 
 static void run_command(vector *v, char **next)
 {
-    if (is_built_in(vector_get(v, 0))) {
-        int ret;
-        char *a = (char *)vector_get(v, 0);
-        if (strcmp(a, "cd") == 0) {
+    const char *cmd = vector_get(v, 0);
+    if (is_built_in(cmd)) {
+        if (strcmp(cmd, "cd") == 0) {
             char cwd[PATH_MAX], str[PATH_MAX];
             getcwd(cwd, sizeof(cwd));
             char *path = (char *)vector_get(v, 1);
             sprintf(str, "%s/%s", cwd, path);
-            ret = (path != NULL) ? chdir(str) : chdir(getenv("HOME"));
+            int ret = (path != NULL) ? chdir(str) : chdir(getenv("HOME"));
             if (ret != 0)
                 fprintf(stderr, "%s: No such file or directory\n", str);
-        } else if (strcmp(a, "!history") == 0) {
+        } else if (strcmp(cmd, "!history") == 0) {
             int index = 0;
             VECTOR_FOR_EACH(g_list_command, thing, {
                 print_history_line(index++, thing);
             });
+        } else if (strncmp(cmd, "#", 1) == 0) {
+            const int index = atoi(&cmd[1]);
+            if (index >= (int)vector_size(g_list_command)) {
+                print_invalid_index();
+            } else {
+                *next = strdup(vector_get(g_list_command, index));
+            }
         }
         return;
     }
@@ -132,6 +138,13 @@ int shell(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
 
     while (true) {
+        if (next != NULL) {
+            memcpy(line, next, strlen(next));
+            strcat(line, "\n");
+            free(next);
+            next = NULL;
+            goto EXECUTE;
+        }
         getcwd(cwd, sizeof(cwd));
         print_prompt(cwd, getpid());
 
@@ -148,7 +161,9 @@ int shell(int argc, char *argv[]) {
             printf("%s", line);
         }
         //p.command = line;
-        vector *v = parse(line);
+        vector *v;
+EXECUTE:
+        v = parse(line);
         const char *cmd = vector_get(v, 0);
         if (strcmp(cmd, "exit") == 0) {
             vector_destroy(v);
