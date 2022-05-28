@@ -16,6 +16,7 @@
 #include "sstring.h"
 
 static bool g_received_interrupt = 0;
+static vector *g_list_command;
 
 typedef struct process {
     char *command;
@@ -61,6 +62,11 @@ static void run_command(vector *v, char **next)
             ret = (path != NULL) ? chdir(str) : chdir(getenv("HOME"));
             if (ret != 0)
                 fprintf(stderr, "%s: No such file or directory\n", str);
+        } else if (strcmp(a, "!history") == 0) {
+            int index = 0;
+            VECTOR_FOR_EACH(g_list_command, thing, {
+                print_history_line(index++, thing);
+            });
         }
         return;
     }
@@ -100,6 +106,8 @@ int shell(int argc, char *argv[]) {
     //process p;
     char *next = NULL;
     FILE *output_file = NULL;
+    g_list_command = string_vector_create();
+
     while ((opt = getopt(argc, argv, "fh")) != -1) {
         switch (opt) {
             case 'h':
@@ -153,6 +161,10 @@ int shell(int argc, char *argv[]) {
                 fprintf(stderr, "%s\n", "write command into history.txt failed");
             }
         }
+        line[strlen(line)-1] = '\0';
+        if (is_need_record(cmd)) {
+            vector_push_back(g_list_command, line);
+        }
         vector_destroy(v);
         memset(line, 0, line_len);
     }
@@ -168,5 +180,6 @@ EXIT:
         else if (has_script)
             print_script_file_error();
     }
+    vector_destroy(g_list_command);
     return 0;
 }
