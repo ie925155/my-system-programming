@@ -73,6 +73,39 @@ static void run_command(vector *v, char **next)
             } else {
                 *next = strdup(vector_get(g_list_command, index));
             }
+        } else if (strncmp(cmd, "!", 1) == 0) {
+            char pattern[128] = {0x0};
+            int index = 0;
+            VECTOR_FOR_EACH(v, thing, {
+                if (index == 0) {
+                    strcat(pattern, thing + 1);
+                } else {
+                    strcat(pattern, thing);
+                }
+                strcat(pattern, " ");
+                index++;
+            });
+            pattern[strlen(pattern)-1] = '\0';
+            index = 0;
+            int last_index = -1;
+            VECTOR_FOR_EACH(g_list_command, thing, {
+                if (strstr(thing, pattern) != NULL) {
+                    last_index = index;
+                }
+                index++;
+            });
+            if (last_index < 0) {
+                if (strlen(pattern) > 0) {
+                    print_no_history_match();
+                } else {
+                    *next = strdup(vector_get(g_list_command, vector_size(g_list_command)-1));
+                }
+            } else {
+                *next = strdup(vector_get(g_list_command, last_index));
+            }
+            if (*next) {
+                fprintf(stderr, "%s\n", *next);
+            }
         }
         return;
     }
