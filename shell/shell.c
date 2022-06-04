@@ -267,6 +267,9 @@ EXECUTE:
                 vector_destroy(cmds);
                 goto EXIT;
             }
+            if (output_file != NULL) {
+                fflush(output_file);
+            }
             if (!vector_empty(v))
                ret = run_command(v, &next);
 
