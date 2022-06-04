@@ -268,6 +268,9 @@ int shell(int argc, char *argv[]) {
 
         getline(&line, &line_len, (has_script) ? output_file : stdin);
 
+        if (strcmp(line, "\n") == 0) {
+            continue;
+        }
         if (g_received_interrupt || feof(stdin)) {
             break;
         }
