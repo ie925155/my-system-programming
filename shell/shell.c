@@ -80,16 +80,23 @@ static vector *parse(const char *line)
     vector *cmds = string_vector_create();
     char *str = strdup(line);
     char *pch;
+    char *str2 = strstr(str, "&");
+    if (str2 != NULL && *(str2 + 1) != '&') {
+        vector_push_back(cmds, str);
+        goto EXIT;
+    }
     pch = strtok(str, "&&||;");
     int count = 0;
     // only support x && y, x || y, x; y
     while (pch != NULL) {
+        //printf("%s\n", pch);
         vector_push_back(cmds, trimwhitespace(pch));
         if (++count >= INPUT_COMMAND_LIMIT) {
             break;
         }
         pch = strtok(NULL, "&&||;");
     }
+EXIT:
     free(str);
     return cmds;
 }
@@ -248,7 +255,7 @@ int shell(int argc, char *argv[]) {
             printf("%s", line);
         }
         //p.command = line;
-        vector *cmds;
+        vector *cmds = NULL;
         int ret;
 EXECUTE:
         cmds = parse(line);
@@ -257,6 +264,7 @@ EXECUTE:
             const char *cmd = vector_get(v, 0);
             if (strcmp(cmd, "exit") == 0) {
                 vector_destroy(v);
+                vector_destroy(cmds);
                 goto EXIT;
             }
             if (!vector_empty(v))
@@ -280,6 +288,7 @@ EXECUTE:
         }
         line[strlen(line)-1] = '\0';
         vector_push_back(g_list_command, line);
+        vector_destroy(cmds);
         memset(line, 0, line_len);
     }
 
