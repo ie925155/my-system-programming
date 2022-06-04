@@ -162,6 +162,13 @@ static int32_t run_command(vector *v, char **next)
         }
         return ret;
     }
+    bool is_bg_process = false;
+    if (vector_size(v) > 1) {
+        if (strcmp(vector_get(v, vector_size(v)-1), "&") == 0) {
+            is_bg_process = true;
+            vector_pop_back(v);
+        }
+    }
     pid_t pid = fork();
     if (pid == -1) {
         print_fork_failed();
@@ -180,12 +187,14 @@ static int32_t run_command(vector *v, char **next)
         fprintf(stderr, "%s\n", "executed failed");
         exit(1);
     } else {
-        int status = 0;
-        pid = waitpid(pid, &status, 0);
-        if (pid != -1 && WIFEXITED(status)) {
-            int exit_status = WEXITSTATUS(status);
-            //printf("process %d returned %d\n", pid, exit_status);
-            ret = exit_status;
+        if (!is_bg_process) {
+            int status = 0;
+            pid = waitpid(pid, &status, 0);
+            if (pid != -1 && WIFEXITED(status)) {
+                int exit_status = WEXITSTATUS(status);
+                //printf("process %d returned %d\n", pid, exit_status);
+                ret = exit_status;
+            }
         }
     }
 
@@ -193,8 +202,22 @@ static int32_t run_command(vector *v, char **next)
 }
 
 static void sig_handler(int signum) {
-    (void)signum;
-    g_received_interrupt = 1;
+    //fprintf(stderr, "catch sigal %d\n", signum);
+    switch (signum) {
+        case SIGINT:
+            g_received_interrupt = 1;
+            break;
+        case SIGCHLD: {
+            //int status;
+            pid_t pid;
+            while ((pid = waitpid((pid_t) (-1), 0, WNOHANG)) > 0) {
+                //fprintf(stderr, "Child %d terminated\n", pid);
+            }
+        }
+            break;
+        default:
+            break;
+    }
 }
 
 int shell(int argc, char *argv[]) {
@@ -230,6 +253,7 @@ int shell(int argc, char *argv[]) {
     }
 
     signal(SIGINT, sig_handler);
+    signal(SIGCHLD, sig_handler);
 
     while (true) {
         if (next != NULL) {
