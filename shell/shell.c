@@ -17,6 +17,7 @@
 
 static bool g_received_interrupt = 0;
 static vector *g_list_command;
+static vector *g_running_process;
 
 typedef struct process {
     char *command;
@@ -24,6 +25,23 @@ typedef struct process {
 } process;
 
 static vector *split_cmd_args(const char *cmd);
+
+static void *process_copy_constructor(void *elem) {
+    if (!elem)
+        return NULL;
+    process *copy = malloc(sizeof(process));
+    memcpy(copy, elem, sizeof(process));
+    return copy;
+}
+
+static void process_destructor(void *elem) {
+    free(((process *)elem)->command);
+    free(elem);
+}
+
+static void *process_default_constructor(void) {
+    return calloc(1, sizeof(process));
+}
 
 static bool is_built_in(const char *cmd) {
     if (strcmp(cmd, "cd") == 0) {
@@ -33,6 +51,8 @@ static bool is_built_in(const char *cmd) {
     } else if (strncmp(cmd, "#", 1) == 0) {
         return true;
     } else if (strncmp(cmd, "!", 1) == 0) {
+        return true;
+    } else if (strcmp(cmd, "ps") == 0) {
         return true;
     }
     return false;
@@ -159,6 +179,65 @@ static int32_t run_command(vector *v, char **next)
             if (*next) {
                 fprintf(stderr, "%s\n", *next);
             }
+        } else if (strcmp(cmd, "ps") == 0) {
+
+            print_process_info_header();
+            VECTOR_FOR_EACH(g_running_process, thing, {
+                process *p = (process *)thing;
+                //char *line = NULL;
+                //size_t line_len = 0;
+
+                char path[PATH_MAX] = {0x0};
+                sprintf(path, "/proc/%u/stat", p->pid);
+                FILE *file = fopen(path, "r");
+                if (file == NULL) {
+                    continue;
+                }
+                int pid;
+                char state;
+                long int nthreads;
+                long int utime;
+                long int stime;
+                long long int starttime;
+                unsigned long int vsize;
+                fscanf(file, "%d %*s %c %*d %*d %*d %*d %*d %*u %*lu %*lu %*lu \
+                %*lu %lu %lu %*ld %*ld %*ld %*ld %ld %*ld %llu %lu", &pid,
+                &state, &utime, &stime, &nthreads, &starttime, &vsize);
+                //fprintf(stderr, "%d %c %lu %lu %ld %llu %lu", pid, state, utime,
+                // stime, nthreads, starttime, vsize);
+                process_info info;
+                info.pid = pid;
+                info.nthreads = nthreads;
+                info.vsize = vsize;
+                info.state = state;
+                info.command = p->command;
+                char str_buffer[128] = {0x0};
+                long int execution_time = (utime + stime) / sysconf(_SC_CLK_TCK);
+                execution_time_to_string(str_buffer, sizeof(str_buffer),
+                    execution_time / 60, execution_time % 60);
+                info.time_str = str_buffer;
+
+                FILE *file2 = fopen("/proc/stat", "r");
+                unsigned long btime;
+                char line[1000];
+                char *it;
+                while(fgets(line, 100, file2)) {
+                  if(!strncmp(line, "btime", 5)) {
+                         it = line + 6;
+                         while(isspace(*it)) ++it;
+                         btime = strtol(it, NULL, 10);
+                       }
+                }
+                fclose(file2);
+                char buffer_start[100];
+                time_t total_seconds_start = starttime/sysconf(_SC_CLK_TCK) + btime;
+                struct tm *tm_info = localtime(&total_seconds_start);
+                if (!time_struct_to_string(buffer_start, 100, tm_info)) exit(1);
+                info.start_str = buffer_start;
+                print_process_info(&info);
+                fclose(file);
+            });
+
         }
         return ret;
     }
@@ -187,7 +266,23 @@ static int32_t run_command(vector *v, char **next)
         fprintf(stderr, "%s\n", "executed failed");
         exit(1);
     } else {
-        if (!is_bg_process) {
+        if (is_bg_process) {
+            char execute_name[64] = {0x0};
+            int i = 0;
+            VECTOR_FOR_EACH(v, thing, {
+                //fprintf(stderr, "%s\n", (char *) thing);
+                strcat(execute_name, (char *)thing);
+                if (i + 1 < (int)vector_size(v))
+                    strcat(execute_name, " ");
+                i++;
+            });
+            strcat(execute_name, " &");
+            process p;
+            p.pid = pid;
+            p.command = strdup(execute_name);
+            //printf("execute process \"%s\"\n", p.command);
+            vector_push_back(g_running_process, (void *)&p);
+        } else {
             int status = 0;
             pid = waitpid(pid, &status, 0);
             if (pid != -1 && WIFEXITED(status)) {
@@ -212,6 +307,20 @@ static void sig_handler(int signum) {
             pid_t pid;
             while ((pid = waitpid((pid_t) (-1), 0, WNOHANG)) > 0) {
                 //fprintf(stderr, "Child %d terminated\n", pid);
+                int index = 0, position = -1;
+                VECTOR_FOR_EACH(g_running_process, thing, {
+                   process *p = (process *)thing;
+                   //fprintf(stderr, "running pid=%d\n", p->pid);
+                   if (p->pid == pid) {
+                      position = index;
+                      break;
+                   }
+                   index++;
+                });
+                if (position != -1) {
+                    //fprintf(stderr, "erase pid=%d\n", pid);
+                    vector_erase(g_running_process, position);
+                }
             }
         }
             break;
@@ -226,10 +335,12 @@ int shell(int argc, char *argv[]) {
     char cwd[PATH_MAX];
     char *line = NULL;
     size_t line_len = 0;
-    //process p;
+    process p;
     char *next = NULL;
     FILE *output_file = NULL;
     g_list_command = string_vector_create();
+    g_running_process = vector_create(process_copy_constructor,
+        process_destructor, process_default_constructor);
 
     while ((opt = getopt(argc, argv, "fh")) != -1) {
         switch (opt) {
@@ -255,6 +366,16 @@ int shell(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
     signal(SIGCHLD, sig_handler);
 
+    char execute_name[64] = {0x0};
+    for (int i=0; i< argc; i++) {
+         strcat(execute_name, argv[i]);
+         if (i+1 < argc)
+            strcat(execute_name, " ");
+    }
+    p.pid = getpid();
+    p.command = strdup(execute_name);
+    vector_push_back(g_running_process, (void *)&p);
+    //printf("execute process %s\n", p.command);
     while (true) {
         if (next != NULL) {
             memcpy(line, next, strlen(next));
@@ -334,5 +455,6 @@ EXIT:
             print_script_file_error();
     }
     vector_destroy(g_list_command);
+    vector_destroy(g_running_process);
     return 0;
 }
