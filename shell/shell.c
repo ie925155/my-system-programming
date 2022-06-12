@@ -94,6 +94,33 @@ static char *trimwhitespace(char *str)
   return str;
 }
 
+static bool check_redirect_output(vector *v, char **operator)
+{
+    bool ret = false;
+    VECTOR_FOR_EACH(v, thing, {
+        if (strcmp(thing, ">") == 0){
+            ret = true;
+            *operator = ">";
+        } else if(strcmp(thing, ">>") == 0) {
+            ret = true;
+            *operator = ">>";
+        }
+    });
+    return ret;
+}
+
+static bool check_redirect_input(vector *v, char **operator)
+{
+    bool ret = false;
+    VECTOR_FOR_EACH(v, thing, {
+        if (strcmp(thing, "<") == 0){
+            ret = true;
+            *operator = "<";
+        }
+    });
+    return ret;
+}
+
 static vector *parse(const char *line)
 {
 #define INPUT_COMMAND_LIMIT (2)
@@ -203,8 +230,6 @@ static int32_t run_command(vector *v, char **next)
                 fscanf(file, "%d %*s %c %*d %*d %*d %*d %*d %*u %*lu %*lu %*lu \
                 %*lu %lu %lu %*ld %*ld %*ld %*ld %ld %*ld %llu %lu", &pid,
                 &state, &utime, &stime, &nthreads, &starttime, &vsize);
-                //fprintf(stderr, "%d %c %lu %lu %ld %llu %lu", pid, state, utime,
-                // stime, nthreads, starttime, vsize);
                 process_info info;
                 info.pid = pid;
                 info.nthreads = nthreads;
@@ -254,7 +279,32 @@ static int32_t run_command(vector *v, char **next)
         exit(1);
     } else if (pid == 0) {
         //p.pid = getpid();
-        fprintf(stderr, "Command executed by pid=%d\n", getpid());
+        fprintf(stdout, "Command executed by pid=%d\n", getpid());
+
+        char *operator;
+        if(check_redirect_output(v, &operator)) {
+            FILE *fp = NULL;
+            if (strcmp(operator, ">") == 0) {
+                fp = fopen(vector_get(v, vector_size(v) - 1), "w");
+            } else if (strcmp(operator, ">>") == 0) {
+                fp = fopen(vector_get(v, vector_size(v) - 1), "a+");
+            }
+            int fd  = fileno(fp);
+            close(1);
+            dup(fd);
+            vector_pop_back(v);
+            vector_pop_back(v);
+        } else if (check_redirect_input(v, &operator)) {
+            FILE *fp = NULL;
+            if (strcmp(operator, "<") == 0) {
+                fp = fopen(vector_get(v, vector_size(v) - 1), "r");
+            }
+            int fd  = fileno(fp);
+            close(0);
+            dup(fd);
+            vector_pop_back(v);
+            vector_pop_back(v);
+        }
         char *myargs[vector_size(v)+1];
         int index = 0;
         VECTOR_FOR_EACH(v, thing, {
