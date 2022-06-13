@@ -58,6 +58,17 @@ static bool is_built_in(const char *cmd) {
     return false;
 }
 
+static bool is_signal_command(const char *cmd) {
+    if (strcmp(cmd, "kill") == 0) {
+        return true;
+    } else if (strcmp(cmd, "stop") == 0) {
+        return true;
+    } else if (strcmp(cmd, "cont") == 0) {
+        return true;
+    }
+    return false;
+}
+
 static bool is_need_record(const char *cmd_with_args) {
     char cmd[32] = {0x0};
     vector *v = split_cmd_args(cmd_with_args);
@@ -266,6 +277,27 @@ static int32_t run_command(vector *v, char **next)
         }
         return ret;
     }
+
+    if (is_signal_command(cmd)) {
+        char * pEnd;
+        pid_t pid = strtol(vector_get(v, 1), &pEnd, 10);
+        VECTOR_FOR_EACH(g_running_process, thing, {
+           process *p = (process *)thing;
+           //fprintf(stderr, "running pid=%d\n", p->pid);
+           if (p->pid == pid) {
+              if (strcmp(cmd, "kill") == 0) {
+                  kill(pid, SIGKILL);
+              } else if (strcmp(cmd, "stop") == 0) {
+                  kill(pid, SIGSTOP);
+              } else if (strcmp(cmd, "cont") == 0) {
+                  kill(pid, SIGCONT);
+              }
+              break;
+           }
+        });
+        return ret;
+    }
+
     bool is_bg_process = false;
     if (vector_size(v) > 1) {
         if (strcmp(vector_get(v, vector_size(v)-1), "&") == 0) {
@@ -350,10 +382,12 @@ static void sig_handler(int signum) {
     //fprintf(stderr, "catch sigal %d\n", signum);
     switch (signum) {
         case SIGINT:
+            fprintf(stderr, "catch sigal SIGINT\n");
             g_received_interrupt = 1;
             break;
         case SIGCHLD: {
             //int status;
+            //fprintf(stderr, "catch sigal SIGCHLD\n");
             pid_t pid;
             while ((pid = waitpid((pid_t) (-1), 0, WNOHANG)) > 0) {
                 //fprintf(stderr, "Child %d terminated\n", pid);
@@ -415,6 +449,7 @@ int shell(int argc, char *argv[]) {
 
     signal(SIGINT, sig_handler);
     signal(SIGCHLD, sig_handler);
+    signal(SIGKILL, sig_handler);
 
     char execute_name[64] = {0x0};
     for (int i=0; i< argc; i++) {
