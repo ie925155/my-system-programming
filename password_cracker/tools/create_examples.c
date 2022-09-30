@@ -9,7 +9,7 @@
 #include <string.h>
 #include <time.h>
 
-#define USERNAME_LEN 8
+#define USERNAME_LEN 11
 #define PASSWORD_LEN \
     8 // feel free to change this to test your cracker with different password
       // length :)
