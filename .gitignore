@@ -52,3 +52,9 @@ Mkfile.old
 dkms.conf
 
 *.tags*
+
+password_cracker/cracker1
+
+password_cracker/cracker2
+
+password_cracker/create_examples
