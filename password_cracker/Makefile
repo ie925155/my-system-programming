@@ -11,7 +11,7 @@ EXE_CRACKER2=cracker2
 EXES_STUDENT=$(EXE_CRACKER1) $(EXE_CRACKER2)
 
 # list object file dependencies for each
-OBJS_ALL=libs/utils.o libs/thread_status.o libs/format.o
+OBJS_ALL=libs/utils.o libs/thread_status.o libs/format.o libs/tpool.o
 OBJS_CRACKER1=$(OBJS_ALL) $(EXE_CRACKER1)_main.o $(EXE_CRACKER1).o
 OBJS_CRACKER2=$(OBJS_ALL) $(EXE_CRACKER2)_main.o $(EXE_CRACKER2).o
 
@@ -29,7 +29,7 @@ EXES_OPTIONAL=$(EXE_TIMING)
 # set up compiler
 CC = gcc
 WARNINGS = -Wall -Wextra -Werror -Wno-error=unused-parameter
-INC=-Ilibs/
+INC=-Ilibs/ -Iincludes/
 CFLAGS_COMMON = $(WARNINGS) $(INC) -std=c99 -c -MMD -MP -D_GNU_SOURCE -pthread
 CFLAGS_RELEASE = $(CFLAGS_COMMON) -O2
 CFLAGS_DEBUG = $(CFLAGS_COMMON) -O0 -g -DDEBUG
